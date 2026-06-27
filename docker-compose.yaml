@@ -84,6 +84,18 @@ services:
       timeout: 5s
       retries: 5
 
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: transactmesh-loki
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./infra/observability/loki.yml:/etc/loki/config.yml
+    networks:
+      - transactmesh-network
+    restart: unless-stopped
+
 networks:
   transactmesh-network:
     driver: bridge
