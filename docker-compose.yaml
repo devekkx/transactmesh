@@ -31,17 +31,35 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: transactmesh-postgres
-    restart: unless-stopped
+
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
       POSTGRES_DB: transactmesh
+
     ports:
       - "5432:5432"
+
     volumes:
       - postgres-data:/var/lib/postgresql/data
+
     networks:
       - transactmesh-network
+
+    restart: unless-stopped
+
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=128MB"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
