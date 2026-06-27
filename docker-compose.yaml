@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # NATS Service
   nats:
     image: nats:2.10-alpine
     container_name: transactmesh-nats
@@ -28,6 +29,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Postgres Service
   postgres:
     image: postgres:16-alpine
     container_name: transactmesh-postgres
@@ -61,6 +63,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Redis Service
   redis:
     image: redis:7-alpine
     container_name: transactmesh-redis
@@ -84,6 +87,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Loki Service
   loki:
     image: grafana/loki:3.0.0
     container_name: transactmesh-loki
@@ -92,6 +96,34 @@ services:
       - "3100:3100"
     volumes:
       - ./infra/observability/loki.yml:/etc/loki/config.yml
+    networks:
+      - transactmesh-network
+    restart: unless-stopped
+
+  # Tempo Service
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: transactmesh-tempo
+    command: ["-config.file=/etc/tempo.yml"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+    volumes:
+      - ./infra/observability/tempo.yml:/etc/tempo.yml
+    networks:
+      - transactmesh-network
+    restart: unless-stopped
+
+  # mimir Service
+  mimir:
+    image: grafana/mimir:latest
+    container_name: transactmesh-mimir
+    command:
+      - "-config.file=/etc/mimir.yml"
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./infra/observability/mimir.yml:/etc/mimir.yml
     networks:
       - transactmesh-network
     restart: unless-stopped
