@@ -64,13 +64,25 @@ services:
   redis:
     image: redis:7-alpine
     container_name: transactmesh-redis
-    restart: unless-stopped
+
     ports:
       - "6379:6379"
+
     volumes:
       - redis-data:/data
+
     networks:
       - transactmesh-network
+
+    restart: unless-stopped
+
+    command: ["redis-server", "--appendonly", "yes"]
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   transactmesh-network:
