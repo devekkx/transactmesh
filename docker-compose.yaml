@@ -4,17 +4,29 @@ services:
   nats:
     image: nats:2.10-alpine
     container_name: transactmesh-nats
+
     command:
       - "--jetstream"
-      - "--http_port"
-      - "8222"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+
     ports:
       - "4222:4222"
       - "8222:8222"
+
     volumes:
       - nats-data:/data
+
     networks:
       - transactmesh-network
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   postgres:
     image: postgres:16-alpine
