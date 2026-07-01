@@ -1,4 +1,4 @@
-package events
+package nats
 
 import (
 	"context"
@@ -12,20 +12,22 @@ type Publisher struct {
 	conn *nats.Conn
 }
 
-func NewPublisher(conn *nats.Conn) *Publisher {
+func New(conn *nats.Conn) *Publisher {
 	return &Publisher{conn: conn}
 }
 
-func (p *Publisher) Publish(ctx context.Context, subject string, payload []byte) error {
+func (p *Publisher) Publish(ctx context.Context, subject string, payload any) error {
 	span := trace.SpanFromContext(ctx)
-	traceID := span.SpanContext().TraceID().String()
 
 	msg := map[string]any{
-		"trace_id": traceID,
+		"trace_id": span.SpanContext().TraceID().String(),
 		"payload":  payload,
 	}
 
-	data, _ := json.Marshal(msg)
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
 
 	return p.conn.Publish(subject, data)
 }
