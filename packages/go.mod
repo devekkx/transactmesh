@@ -1,4 +1,4 @@
-module github.com/devekkx/transactmesh/pacakges
+module github.com/devekkx/transactmesh/packages
 
 go 1.26.2
 
