@@ -2,41 +2,38 @@ package nats
 
 import (
 	"context"
-	"encoding/json"
-	"log"
 
 	"github.com/nats-io/nats.go"
 )
 
-type HandlerFunc func(ctx context.Context, msg *Message) error
+func subscribe(c *Client, subject string, handler HandlerFunc) (*nats.Subscription, error) {
 
-type Message struct {
-	Subject string
-	Data    []byte
-	Headers map[string]string
-}
+	sub, err := c.js.Subscribe(
+		subject,
+		func(msg *nats.Msg) {
 
-func (c *Client) Subscribe(subject string, handler HandlerFunc) error {
+			ctx := Extract(context.Background(), msg)
 
-	_, err := c.conn.Subscribe(subject, func(msg *nats.Msg) {
+			m := &Message{
+				Subject: msg.Subject,
+				Data:    msg.Data,
+			}
 
-		ctx := context.Background()
+			if err := handler(ctx, m); err != nil {
+				_ = msg.Nak()
+				return
+			}
 
-		var payload map[string]any
-		if err := json.Unmarshal(msg.Data, &payload); err != nil {
-			log.Printf("[NATS] invalid payload: %v", err)
-			return
-		}
+			_ = msg.Ack()
+		},
+		nats.Durable("wallet-service-"+subject),
+		nats.ManualAck(),
+		nats.AckExplicit(),
+	)
 
-		err := handler(ctx, &Message{
-			Subject: msg.Subject,
-			Data:    msg.Data,
-		})
+	if err != nil {
+		return nil, err
+	}
 
-		if err != nil {
-			log.Printf("[NATS] handler error: %v", err)
-		}
-	})
-
-	return err
+	return sub, nil
 }

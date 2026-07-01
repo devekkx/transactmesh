@@ -2,24 +2,25 @@ package nats
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/nats-io/nats.go"
 )
 
-func (c *Client) Publish(ctx context.Context, subject string, payload any) error {
-
-	_ = ctx // reserved for future OTEL injection
-
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
+func publish(ctx context.Context, c *Client, subject string, data []byte) error {
 
 	msg := &nats.Msg{
 		Subject: subject,
 		Data:    data,
+		Header:  nats.Header{},
 	}
 
-	return c.conn.PublishMsg(msg)
+	// inject tracing + correlation
+	Inject(ctx, msg)
+
+	_, err := c.js.PublishMsg(msg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
