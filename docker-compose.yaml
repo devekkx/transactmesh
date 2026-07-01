@@ -148,6 +148,16 @@ services:
 
     restart: unless-stopped
 
+secrets:
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password.txt
+
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+
 networks:
   transactmesh-network:
     driver: bridge
