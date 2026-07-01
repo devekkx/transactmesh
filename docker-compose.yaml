@@ -94,11 +94,11 @@ services:
   loki:
     image: grafana/loki:3.0.0
     container_name: transactmesh-loki
-    command: -config.file=/etc/loki/config.yml
+    command: -config.file=/etc/loki/config.yaml
     ports:
       - "3100:3100"
     volumes:
-      - ./infra/observability/loki.yml:/etc/loki/config.yml
+      - ./infra/observability/loki.yaml:/etc/loki/config.yaml
     networks:
       - transactmesh-network
     restart: unless-stopped
@@ -107,12 +107,12 @@ services:
   tempo:
     image: grafana/tempo:2.5.0
     container_name: transactmesh-tempo
-    command: ["-config.file=/etc/tempo.yml"]
+    command: ["-config.file=/etc/tempo.yaml"]
     ports:
       - "3200:3200"
       - "4317:4317"
     volumes:
-      - ./infra/observability/tempo.yml:/etc/tempo.yml
+      - ./infra/observability/tempo.yaml:/etc/tempo.yaml
     networks:
       - transactmesh-network
     restart: unless-stopped
@@ -122,11 +122,11 @@ services:
     image: grafana/mimir:latest
     container_name: transactmesh-mimir
     command:
-      - "-config.file=/etc/mimir.yml"
+      - "-config.file=/etc/mimir.yaml"
     ports:
       - "9009:9009"
     volumes:
-      - ./infra/observability/mimir.yml:/etc/mimir.yml
+      - ./infra/observability/mimir.yaml:/etc/mimir.yaml
     networks:
       - transactmesh-network
     restart: unless-stopped
