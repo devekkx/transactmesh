@@ -1,42 +1,55 @@
 package main
 
 import (
-	"context"
 	"log"
-	"net/http"
 	"time"
 
-	"github.com/devekkx/transactmesh/wallet-service/internal/config"
-	"github.com/devekkx/transactmesh/wallet-service/internal/observability"
+	"github.com/gin-gonic/gin"
+
+	natspkg "github.com/devekkx/transactmesh/packages/nats"
+
+	"github.com/devekkx/transactmesh/wallet-service/internal/events"
+	httpapi "github.com/devekkx/transactmesh/wallet-service/internal/http"
 	"github.com/devekkx/transactmesh/wallet-service/internal/wallet"
 )
 
 func main() {
-	ctx := context.Background()
 
-	cfg := config.Load()
-
-	shutdown, err := observability.InitTracer(ctx, cfg)
+	// NATS client
+	bus, err := natspkg.New(natspkg.Config{
+		URL:           "nats://localhost:4222",
+		Name:          "wallet-service",
+		MaxReconnects: -1,
+		ReconnectWait: 2 * time.Second,
+		Timeout:       5 * time.Second,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = shutdown(ctx)
-	}()
 
-	walletService := wallet.NewService()
+	// repo (temporary in-memory)
+	repo := wallet.NewInMemoryRepo()
 
-	mux := http.NewServeMux()
+	// event publisher
+	publisher := events.NewPublisher(bus)
 
-	mux.HandleFunc("/debit", func(w http.ResponseWriter, r *http.Request) {
-		_ = walletService.Debit(r.Context(), "123", 100)
-		w.Write([]byte("ok"))
+	// service
+	svc := wallet.NewService(repo, publisher)
+
+	// gin setup
+	r := gin.New()
+
+	// production middlewares
+	r.Use(gin.Recovery())
+
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Content-Type", "application/json")
+		c.Next()
 	})
 
-	handler := observability.NewHTTPHandler(mux, "wallet.http")
+	handler := httpapi.NewHandler(svc)
+	handler.RegisterRoutes(r)
 
 	log.Println("wallet-service running on :8080")
-	_ = http.ListenAndServe(":8080", handler)
+	log.Fatal(r.Run(":8080"))
 }

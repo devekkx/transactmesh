@@ -2,30 +2,46 @@ package wallet
 
 import (
 	"context"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
+	"errors"
 )
 
-type Service struct{}
+type EventPublisher interface {
+	WalletDebited(ctx context.Context, walletID string, amount int64) error
+}
 
-func NewService() *Service {
-	return &Service{}
+type Service struct {
+	repo      Repository
+	publisher EventPublisher
+}
+
+func NewService(repo Repository, publisher EventPublisher) *Service {
+	return &Service{
+		repo:      repo,
+		publisher: publisher,
+	}
 }
 
 func (s *Service) Debit(ctx context.Context, walletID string, amount int64) error {
 
-	tracer := otel.Tracer("wallet-service")
+	if amount <= 0 {
+		return errors.New("invalid amount")
+	}
 
-	ctx, span := tracer.Start(ctx, "wallet.debit")
-	defer span.End()
+	w, err := s.repo.GetByID(ctx, walletID)
+	if err != nil {
+		return err
+	}
 
-	span.SetAttributes(
-		attribute.String("wallet.id", walletID),
-		attribute.Int64("wallet.amount", amount),
-	)
+	if w.Balance < amount {
+		return errors.New("insufficient funds")
+	}
 
-	// business logic here
+	w.Balance -= amount
 
-	return nil
+	if err := s.repo.Save(ctx, w); err != nil {
+		return err
+	}
+
+	// EVENT (after state change)
+	return s.publisher.WalletDebited(ctx, walletID, amount)
 }
