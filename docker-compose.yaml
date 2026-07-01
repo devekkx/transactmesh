@@ -1,0 +1,193 @@
+version: "3.9"
+
+services:
+  # NATS Service
+  nats:
+    image: nats:2.10-alpine
+    container_name: transactmesh-nats
+
+    command:
+      - "--jetstream"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+    volumes:
+      - nats-data:/data
+
+    networks:
+      - transactmesh-network
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Postgres Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: transactmesh-postgres
+
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: transactmesh
+
+    secrets:
+      - postgres_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    networks:
+      - transactmesh-network
+
+    restart: unless-stopped
+
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=128MB"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Service
+  redis:
+    image: redis:7-alpine
+    container_name: transactmesh-redis
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis-data:/data
+
+    networks:
+      - transactmesh-network
+
+    restart: unless-stopped
+
+    command: ["redis-server", "--appendonly", "yes"]
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Loki Service
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: transactmesh-loki
+    command: -config.file=/etc/loki/config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./infra/observability/loki.yaml:/etc/loki/config.yaml
+    networks:
+      - transactmesh-network
+    restart: unless-stopped
+
+  # Tempo Service
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: transactmesh-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+    volumes:
+      - ./infra/observability/tempo.yaml:/etc/tempo.yaml
+    networks:
+      - transactmesh-network
+    restart: unless-stopped
+
+  # Prometheus Service
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: transactmesh-prometheus
+
+    volumes:
+      - ./infra/observability/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml
+
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yaml"
+
+    ports:
+      - "9090:9090"
+
+    networks:
+      - transactmesh-network
+
+    restart: unless-stopped
+
+  # mimir Service
+  mimir:
+    image: grafana/mimir:latest
+    container_name: transactmesh-mimir
+    command:
+      - "-config.file=/etc/mimir.yaml"
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./infra/observability/mimir.yaml:/etc/mimir.yaml
+    networks:
+      - transactmesh-network
+    restart: unless-stopped
+
+  # Granafa Service
+  grafana:
+    image: grafana/grafana:latest
+    container_name: transactmesh-grafana
+
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning
+
+    ports:
+      - "3001:3000"
+
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_admin_password
+
+    secrets:
+      - grafana_admin_password
+
+    networks:
+      - transactmesh-network
+
+    restart: unless-stopped
+
+secrets:
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password.txt
+
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+
+networks:
+  transactmesh-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  nats-data:
