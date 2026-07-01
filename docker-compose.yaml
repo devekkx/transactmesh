@@ -128,6 +128,26 @@ services:
       - transactmesh-network
     restart: unless-stopped
 
+  # Granafa Service
+  grafana:
+    image: grafana/grafana:latest
+    container_name: transactmesh-grafana
+
+    ports:
+      - "3001:3000"
+
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_admin_password
+
+    secrets:
+      - grafana_admin_password
+
+    networks:
+      - transactmesh-network
+
+    restart: unless-stopped
+
 networks:
   transactmesh-network:
     driver: bridge
