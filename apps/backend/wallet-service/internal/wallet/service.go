@@ -42,6 +42,6 @@ func (s *Service) Debit(ctx context.Context, walletID string, amount int64) erro
 		return err
 	}
 
-	// EVENT (after state change)
+	// Debit event (after state change)
 	return s.publisher.WalletDebited(ctx, walletID, amount)
 }
